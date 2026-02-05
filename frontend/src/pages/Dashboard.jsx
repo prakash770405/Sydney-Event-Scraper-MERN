@@ -24,86 +24,110 @@ function Dashboard() {
   };
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h2>Admin Dashboard – All Event Data</h2>
+    <div className="p-6">
+      <h2 className="text-2xl font-bold mb-4 text-gray-800">
+        Admin Dashboard – All Event Data        
+      </h2>
 
-      <table border="1" cellPadding="8" cellSpacing="0">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Title</th>
-            <th>City</th>
-            <th>Source</th>
-            <th>Status</th>
-            <th>Last Scraped</th>
-            <th>Imported At</th>
-            <th>Imported By</th>
-            <th>Original URL</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {events.map(event => (
-            <tr key={event._id}>
-              {/* _id (short) */}
-              <td>{event._id.slice(-6)}</td>
-
-              {/* title */}
-              <td>{event.title}</td>
-
-              {/* city */}
-              <td>{event.city}</td>
-
-              {/* source */}
-              <td>{event.source}</td>
-
-              {/* status */}
-              <td>
-                <span
-                  style={{
-                    padding: "3px 6px",
-                    borderRadius: "4px",
-                    background:
-                      event.status === "imported" ? "#c8e6c9" : "#ffe0b2"
-                  }}
+      <div className="overflow-x-auto">
+        <table className="min-w-full border border-gray-200 shadow-sm rounded-lg">
+          <thead className="bg-gray-100">
+            <tr>
+              {[
+                "ID",
+                "Title",
+                "City",
+                "Source",
+                "Status",
+                "Last Scraped",
+                "Imported At",
+                "Imported By",
+                "Original URL",
+                "Action",
+              ].map((col) => (
+                <th
+                  key={col}
+                  className="px-4 py-2 text-left text-sm font-medium text-gray-700 uppercase"
                 >
-                  {event.status}
-                </span>
-              </td>
-
-              {/* lastScrapedAt */}
-              <td>{formatDate(event.lastScrapedAt)}</td>
-
-              {/* importedAt */}
-              <td>{formatDate(event.importedAt)}</td>
-
-              {/* importedBy */}
-              <td>{event.importedBy || "-"}</td>
-
-              {/* originalUrl */}
-              <td>
-                <a
-                  href={event.originalUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  View
-                </a>
-              </td>
-
-              {/* action */}
-              <td>
-                {event.status === "new" && (
-                  <button onClick={() => importEvent(event._id)}>
-                    Import
-                  </button>
-                )}
-              </td>
+                  {col}
+                </th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+
+          <tbody className="bg-white divide-y divide-gray-200">
+            {events.map((event) => (
+              <tr key={event._id} className="hover:bg-gray-50">
+                {/* _id (short) */}
+                <td className="px-4 py-2 text-sm text-gray-600">
+                  {event._id.slice(-6)}
+                </td>
+
+                {/* title */}
+                <td className="px-4 py-2 text-sm text-gray-700">{event.title}</td>
+
+                {/* city */}
+                <td className="px-4 py-2 text-sm text-gray-700">{event.city}</td>
+
+                {/* source */}
+                <td className="px-4 py-2 text-sm text-gray-700">{event.source}</td>
+
+                {/* status */}
+                <td className="px-4 py-2">
+                  <span
+                    className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                      event.status === "imported"
+                        ? "bg-green-100 text-green-800"
+                        : "bg-yellow-100 text-yellow-800"
+                    }`}
+                  >
+                    {event.status}
+                  </span>
+                </td>
+
+                {/* lastScrapedAt */}
+                <td className="px-4 py-2 text-sm text-gray-600">
+                  {formatDate(event.lastScrapedAt)}
+                </td>
+
+                {/* importedAt */}
+                <td className="px-4 py-2 text-sm text-gray-600">
+                  {formatDate(event.importedAt)}
+                </td>
+
+                {/* importedBy */}
+                <td className="px-4 py-2 text-sm text-gray-700">
+                  {event.importedBy || "-"}
+                </td>
+
+                {/* originalUrl */}
+                <td className="px-4 py-2">
+                  <a
+                    href={event.originalUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-indigo-600 hover:underline"
+                  >
+                    View
+                  </a>
+                </td>
+
+                {/* action */}
+                <td className="px-4 py-2">
+                  {event.status === "new" && (
+                    <button
+                      onClick={() => importEvent(event._id)}
+                      className="px-3 py-1 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700 transition"
+                    >
+                      Import
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

@@ -12,7 +12,6 @@ const eventSchema = new mongoose.Schema({
   description: String,
   category: String,
   image: String,
-
   // Lifecycle
   status: {
     type: String,

@@ -7,55 +7,65 @@ async function scrape() {
   let browser;
 
   try {
-    // 1️⃣ Connect DB
     await mongoose.connect(process.env.MONGO_URI);
     console.log("MongoDB connected");
 
-    // 2️⃣ Launch browser
     browser = await puppeteer.launch({
       headless: "new",
       defaultViewport: null,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"]
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
 
     const page = await browser.newPage();
-
-    // 3️⃣ Go to Sydney events page
     await page.goto(
       "https://www.eventbrite.com.au/d/australia--sydney/events/",
       { waitUntil: "networkidle2", timeout: 0 }
     );
 
-    // 4️⃣ Scrape raw data ONLY
+    // Scroll to load lazy images
+    await autoScroll(page);
+
+    // Wait for at least one link to appear
+    await page.waitForSelector("a[href*='/e/']", { timeout: 15000 });
+
     const scrapedEvents = await page.evaluate(() => {
-      return Array.from(document.querySelectorAll("a[href*='/e/']"))
-        .map(el => ({
-          title: el.innerText.trim(),
-          originalUrl: el.href
-        }))
-        .filter(e => e.title.length > 10)
-        .slice(0, 15)
-        .map(e => ({
-          title: e.title,
-          originalUrl: e.originalUrl,
-          city: "Sydney",
-          source: "Eventbrite"
-        }));
+      const links = Array.from(document.querySelectorAll("a[href*='/e/']"));
+
+      const events = links.map(link => {
+        const title = link.innerText.trim();
+        const originalUrl = link.href;
+
+        // Try to get image from the nearest img inside parent div
+        const img = link.closest("div")?.querySelector("img")?.src || "";
+
+        return { title, originalUrl, image: img, city: "Sydney", source: "Eventbrite" };
+      });
+
+      // Filter out too short titles & remove duplicates
+      const filtered = [];
+      const seen = new Set();
+      for (const e of events) {
+        if (e.title.length > 5 && !seen.has(e.title)) {
+          filtered.push(e);
+          seen.add(e.title);
+        }
+      }
+
+      return filtered.slice(0, 20); // limit to first 20 events
     });
 
-    // 5️⃣ Add lifecycle metadata (Node.js context)
-    const events = scrapedEvents.map(event => ({
-      ...event,
-      lastScrapedAt: new Date(),
-      status: "new"
-    }));
+    if (!scrapedEvents.length) {
+      console.log("No events found!");
+      return;
+    }
 
+    // Add metadata
+    const events = scrapedEvents.map(e => ({ ...e, lastScrapedAt: new Date(), status: "new" }));
     console.log("Events scraped:", events.length);
 
-    // 6️⃣ Store titles for inactive detection
-    const scrapedTitles = new Set(events.map(e => e.title));
+    const titles = new Set(events.map(e => e.title));
 
-    // 7️⃣ Insert / update events (NO duplicates)
+    // Upsert DB
     for (const event of events) {
       await Event.updateOne(
         { title: event.title },
@@ -64,17 +74,13 @@ async function scrape() {
       );
     }
 
-    // 8️⃣ Mark missing events as inactive
+    // Mark missing events inactive
     await Event.updateMany(
-      {
-        city: "Sydney",
-        title: { $nin: Array.from(scrapedTitles) }
-      },
+      { city: "Sydney", title: { $nin: Array.from(titles) } },
       { status: "inactive" }
     );
 
-    console.log("Scraping + update completed");
-
+    console.log("Scraping + DB update done ✅");
   } catch (err) {
     console.error("Scraping failed:", err.message);
   } finally {
@@ -84,5 +90,22 @@ async function scrape() {
   }
 }
 
-// ▶️ Run scraper
+// Auto-scroll to load images
+async function autoScroll(page) {
+  await page.evaluate(async () => {
+    await new Promise(resolve => {
+      let totalHeight = 0;
+      const distance = 200;
+      const timer = setInterval(() => {
+        window.scrollBy(0, distance);
+        totalHeight += distance;
+        if (totalHeight >= document.body.scrollHeight - window.innerHeight) {
+          clearInterval(timer);
+          resolve();
+        }
+      }, 200);
+    });
+  });
+}
+
 scrape();

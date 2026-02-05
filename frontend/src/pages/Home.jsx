@@ -9,8 +9,12 @@ function Home() {
   }, []);
 
   const loadEvents = async () => {
-    const res = await api.get("/events/public");
-    setEvents(res.data);
+    try {
+      const res = await api.get("/events/public");
+      setEvents(res.data);
+    } catch (err) {
+      console.error("Failed to load events:", err);
+    }
   };
 
   const formatDate = (date) => {
@@ -18,42 +22,80 @@ function Home() {
     return new Date(date).toLocaleDateString();
   };
 
+  const getTickets = async (event) => {
+    let email = prompt("Enter your Gmail address to get tickets:");
+
+    if (!email) {
+      alert("Email is required!");
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(email)) {
+      alert("Please enter a valid Gmail address!");
+      return;
+    }
+
+    try {
+      await api.post("/events/lead", {
+        email,
+        eventId: event._id,
+        consent: true
+      });
+
+      window.open(event.originalUrl, "_blank");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to save email. Try again.");
+    }
+  };
+
   return (
-    <div style={{ padding: "20px" }}>
-      <h2>Sydney Events</h2>
+    <div className="p-6">
+      <h2 className="text-2xl font-bold mb-6 text-gray-800">Sydney Events</h2>
 
-      {events.length === 0 && <p>No events available.</p>}
+      {events.length === 0 && (
+        <p className="text-gray-500">No events available.</p>
+      )}
 
-      <div style={{ display: "grid", gap: "15px" }}>
-        {events.map(event => (
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        {events.map((event) => (
           <div
             key={event._id}
-            style={{
-              border: "1px solid #ddd",
-              padding: "15px",
-              borderRadius: "6px"
-            }}
+            className="bg-white shadow-md rounded-lg overflow-hidden hover:shadow-xl transition-shadow"
           >
-            <h3>{event.title}</h3>
+            {event.image && (
+              <img
+                src={event.image}
+                alt={event.title}
+                className="w-full h-48 object-cover"
+              />
+            )}
 
-            <p><strong>City:</strong> {event.city}</p>
-            <p><strong>Source:</strong> {event.source}</p>
-            <p>
-              <strong>Imported:</strong>{" "}
-              {formatDate(event.importedAt)}
-            </p>
-            <p>
-              <strong>Added by:</strong>{" "}
-              {event.importedBy || "Admin"}
-            </p>
+            <div className="p-4">
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                {event.title}
+              </h3>
 
-            <a
-              href={event.originalUrl}
-              target="_blank"
-              rel="noreferrer"
-            >
-              🎟️ Get Tickets
-            </a>
+              <p className="text-sm text-gray-600">
+                <strong>City:</strong> {event.city}
+              </p>
+              <p className="text-sm text-gray-600">
+                <strong>Source:</strong> {event.source}
+              </p>
+              <p className="text-sm text-gray-600">
+                <strong>Imported:</strong> {formatDate(event.importedAt)}
+              </p>
+              <p className="text-sm text-gray-600 mb-4">
+                <strong>Added by:</strong> {event.importedBy || "Admin"}
+              </p>
+
+              <button
+                onClick={() => getTickets(event)}
+                className="w-full bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition"
+              >
+                🎟️ Get Tickets
+              </button>
+            </div>
           </div>
         ))}
       </div>
