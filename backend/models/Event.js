@@ -1,19 +1,29 @@
 const mongoose = require("mongoose");
 
 const eventSchema = new mongoose.Schema({
-  title: { type: String, unique: true },
+  title: { type: String, required: true, unique: true },
+  city: String,
+  source: String,
+  originalUrl: String,
+
+  // Optional (future use)
   dateTime: String,
   venue: String,
-  city: String,
   description: String,
   category: String,
   image: String,
-  source: String,
-  originalUrl: String,
-  status: { type: String, default: "new" },
+
+  // Lifecycle
+  status: {
+    type: String,
+    enum: ["new", "imported", "inactive"],
+    default: "new"
+  },
+
   lastScrapedAt: Date,
   importedAt: Date,
-  importedBy: String
+  importedBy: String,
+  importNotes: String
 });
 
 module.exports = mongoose.model("Event", eventSchema);

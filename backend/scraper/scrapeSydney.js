@@ -4,70 +4,85 @@ const Event = require("../models/Event");
 require("dotenv").config();
 
 async function scrape() {
-    let browser;
+  let browser;
 
-    try {
-        // ✅ Connect to MongoDB
-        await mongoose.connect(process.env.MONGO_URI);
-        console.log("MongoDB connected");
+  try {
+    // 1️⃣ Connect DB
+    await mongoose.connect(process.env.MONGO_URI);
+    console.log("MongoDB connected");
 
-        // ✅ Launch browser
-        browser = await puppeteer.launch({
-            headless: "new",
-            defaultViewport: null,
-            args: ["--no-sandbox", "--disable-setuid-sandbox"]
-        });
+    // 2️⃣ Launch browser
+    browser = await puppeteer.launch({
+      headless: "new",
+      defaultViewport: null,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"]
+    });
 
-        const page = await browser.newPage();
+    const page = await browser.newPage();
 
-        // ✅ Open Eventbrite Sydney page
-        await page.goto(
-            "https://www.eventbrite.com.au/d/australia--sydney/events/",
-            { waitUntil: "networkidle2", timeout: 0 }
-        );
+    // 3️⃣ Go to Sydney events page
+    await page.goto(
+      "https://www.eventbrite.com.au/d/australia--sydney/events/",
+      { waitUntil: "networkidle2", timeout: 0 }
+    );
 
-        // ✅ Scrape ONLY text in browser context
-        const scrapedEvents = await page.evaluate(() => {
-            return Array.from(document.querySelectorAll("a[href*='/e/']"))
-                .map(el => el.innerText.trim())
-                .filter(title => title.length > 10)
-                .slice(0, 15)
-                .map(title => ({
-                    title,
-                    source: "Eventbrite",
-                    city: "Sydney"
-                }));
-        });
-
-        // ✅ Add dates in Node.js context
-        const events = scrapedEvents.map(event => ({
-            ...event,
-            lastScrapedAt: new Date(),
-            status: "new"
+    // 4️⃣ Scrape raw data ONLY
+    const scrapedEvents = await page.evaluate(() => {
+      return Array.from(document.querySelectorAll("a[href*='/e/']"))
+        .map(el => ({
+          title: el.innerText.trim(),
+          originalUrl: el.href
+        }))
+        .filter(e => e.title.length > 10)
+        .slice(0, 15)
+        .map(e => ({
+          title: e.title,
+          originalUrl: e.originalUrl,
+          city: "Sydney",
+          source: "Eventbrite"
         }));
+    });
 
-        console.log("Events found:", events.length);
+    // 5️⃣ Add lifecycle metadata (Node.js context)
+    const events = scrapedEvents.map(event => ({
+      ...event,
+      lastScrapedAt: new Date(),
+      status: "new"
+    }));
 
-        // ✅ Insert without duplicates
-        for (const event of events) {
-            await Event.updateOne(
-                { title: event.title },
-                { $setOnInsert: event },
-                { upsert: true }
-            );
-        }
+    console.log("Events scraped:", events.length);
 
-        console.log("Events inserted into DB");
+    // 6️⃣ Store titles for inactive detection
+    const scrapedTitles = new Set(events.map(e => e.title));
 
-    } catch (error) {
-        console.error("Scraping failed:", error.message);
-    } finally {
-        // ✅ Cleanup
-        if (browser) await browser.close();
-        await mongoose.connection.close();
-        console.log("Browser & DB closed");
+    // 7️⃣ Insert / update events (NO duplicates)
+    for (const event of events) {
+      await Event.updateOne(
+        { title: event.title },
+        { $setOnInsert: event },
+        { upsert: true }
+      );
     }
+
+    // 8️⃣ Mark missing events as inactive
+    await Event.updateMany(
+      {
+        city: "Sydney",
+        title: { $nin: Array.from(scrapedTitles) }
+      },
+      { status: "inactive" }
+    );
+
+    console.log("Scraping + update completed");
+
+  } catch (err) {
+    console.error("Scraping failed:", err.message);
+  } finally {
+    if (browser) await browser.close();
+    await mongoose.connection.close();
+    console.log("Browser & DB closed");
+  }
 }
 
-// ✅ Run scraper
+// ▶️ Run scraper
 scrape();

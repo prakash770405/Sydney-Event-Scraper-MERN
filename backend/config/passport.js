@@ -6,11 +6,32 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: "/api/auth/google/callback",
+      callbackURL: "/api/auth/google/callback"
     },
-    (accessToken, refreshToken, profile, done) => {
-      // For assignment, we don't store user in DB
-      return done(null, profile);
+    async (accessToken, refreshToken, profile, done) => {
+      // Store minimum required user info
+      const user = {
+        googleId: profile.id,
+        email: profile.emails[0].value,
+        name: profile.displayName
+      };
+
+      // VERY IMPORTANT
+      return done(null, user);
     }
   )
 );
+
+/* =========================
+   SESSION SERIALIZATION
+========================= */
+
+passport.serializeUser((user, done) => {
+  done(null, user); // store user in session
+});
+
+passport.deserializeUser((user, done) => {
+  done(null, user); // retrieve user from session
+});
+
+module.exports = passport;

@@ -2,7 +2,8 @@
 ```
 Assignment
 ├─ backend
-│  ├─ .env
+│  ├─ config
+│  │  └─ passport.js
 │  ├─ models
 │  │  ├─ Event.js
 │  │  └─ Lead.js
@@ -14,6 +15,27 @@ Assignment
 │  ├─ scraper
 │  │  └─ scrapeSydney.js
 │  └─ server.js
-└─ frontend
+├─ frontend
+│  ├─ eslint.config.js
+│  ├─ index.html
+│  ├─ package-lock.json
+│  ├─ package.json
+│  ├─ public
+│  │  └─ vite.svg
+│  ├─ README.md
+│  ├─ src
+│  │  ├─ api.js
+│  │  ├─ App.jsx
+│  │  ├─ assets
+│  │  │  └─ react.svg
+│  │  ├─ components
+│  │  │  └─ EventCard.jsx
+│  │  ├─ index.css
+│  │  ├─ main.jsx
+│  │  └─ pages
+│  │     ├─ Dashboard.jsx
+│  │     └─ Home.jsx
+│  └─ vite.config.js
+└─ README.md
 
 ```
