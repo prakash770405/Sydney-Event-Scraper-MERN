@@ -25,10 +25,11 @@ router.get("/", async (req, res) => {
 });
 
 /* =========================
-   PUBLIC: IMPORTED EVENTS
+   PUBLIC: IMPORTED EVENTS ONLY
 ========================= */
 router.get("/public", async (req, res) => {
   try {
+    // Return only imported events on the public homepage
     const events = await Event.find({ city: "Sydney", status: "imported" }).sort({ importedAt: -1 });
     res.json(events);
   } catch (err) {

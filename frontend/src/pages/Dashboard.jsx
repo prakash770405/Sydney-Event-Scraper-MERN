@@ -4,10 +4,13 @@ import { AuthContext } from "../context/AuthContext";
 
 function Dashboard() {
   const [events, setEvents] = useState([]);
+  const [leads, setLeads] = useState([]);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [importingId, setImportingId] = useState(null);
+  const [showLeads, setShowLeads] = useState(false);
+  const [leadsLoading, setLeadsLoading] = useState(false);
   const { user } = useContext(AuthContext);
 
   useEffect(() => {
@@ -100,6 +103,50 @@ function Dashboard() {
     }
   };
 
+  const importAllEvents = async () => {
+    if (!user) {
+      setError("You must be logged in as admin to import events");
+      return;
+    }
+
+    if (!window.confirm("Import ALL new events? This will mark all new scraped events as imported.")) return;
+
+    try {
+      setError("");
+      setSuccessMessage("");
+      const res = await api.post(`/admin/events/import-all`);
+      setSuccessMessage(res.data.message || "All events imported successfully!");
+      setTimeout(() => setSuccessMessage(""), 4000);
+      await loadEvents();
+    } catch (err) {
+      console.error("Import all error:", err);
+      const errorMsg = err.response?.data?.message || "Failed to import events";
+      setError(errorMsg);
+    }
+  };
+
+  const loadLeads = async () => {
+    if (!user) {
+      setError("You must be logged in as admin to view leads");
+      return;
+    }
+
+    try {
+      setLeadsLoading(true);
+      setError("");
+      const res = await api.get("/admin/leads");
+      console.log("Leads loaded:", res.data);
+      setLeads(res.data || []);
+      setShowLeads(true);
+    } catch (err) {
+      console.error("Failed to load leads:", err);
+      const errorMsg = err.response?.data?.message || "Failed to load leads";
+      setError(errorMsg);
+    } finally {
+      setLeadsLoading(false);
+    }
+  };
+
   const formatDate = (date) => {
     if (!date) return "-";
     return new Date(date).toLocaleString();
@@ -113,12 +160,32 @@ function Dashboard() {
         </h2>
         <div className="flex items-center gap-2">
           {user && (
-            <button
-              onClick={deleteAllEvents}
-              className="px-3 py-1 rounded text-white bg-red-600 hover:bg-red-700"
-            >
-              Delete All
-            </button>
+            <>
+              <button
+                onClick={importAllEvents}
+                className="px-3 py-1 rounded text-white bg-blue-600 hover:bg-blue-700"
+              >
+                Import All
+              </button>
+              <button
+                onClick={() => {
+                  if (showLeads) {
+                    setShowLeads(false);
+                  } else {
+                    loadLeads();
+                  }
+                }}
+                className="px-3 py-1 rounded text-white bg-purple-600 hover:bg-purple-700"
+              >
+                {showLeads ? "Hide Leads" : "Show Leads"}
+              </button>
+              <button
+                onClick={deleteAllEvents}
+                className="px-3 py-1 rounded text-white bg-red-600 hover:bg-red-700"
+              >
+                Delete All
+              </button>
+            </>
           )}
           <button
             onClick={loadEvents}
@@ -289,6 +356,76 @@ function Dashboard() {
             ))}
           </tbody>
         </table>
+        </div>
+      )}
+
+      {/* Leads Table Section */}
+      {showLeads && (
+        <div className="mt-8">
+          <h3 className="text-2xl font-bold text-gray-800 mb-4">All Leads</h3>
+          
+          {leadsLoading ? (
+            <div className="flex justify-center items-center p-8">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+            </div>
+          ) : leads.length === 0 ? (
+            <div className="p-8 text-center bg-gray-50 rounded">
+              <p className="text-gray-600">No leads found.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full border border-gray-200 shadow-sm rounded-lg">
+                <thead className="bg-gray-100">
+                  <tr>
+                    {[
+                      "Email",
+                      "Name",
+                      "Event",
+                      "Verified",
+                      "Created At",
+                      "Verification Code",
+                    ].map((col) => (
+                      <th
+                        key={col}
+                        className="px-4 py-2 text-left text-sm font-medium text-gray-700 uppercase"
+                      >
+                        {col}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {leads.map((lead) => (
+                    <tr key={lead._id} className="hover:bg-gray-50">
+                      <td className="px-4 py-2 text-sm text-gray-700">{lead.email}</td>
+                      <td className="px-4 py-2 text-sm text-gray-700">{lead.name || "-"}</td>
+                      <td className="px-4 py-2 text-sm text-gray-700">
+                        {lead.eventId?.title || "-"}
+                      </td>
+                      <td className="px-4 py-2">
+                        <span
+                          className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                            lead.verified
+                              ? "bg-green-100 text-green-800"
+                              : "bg-yellow-100 text-yellow-800"
+                          }`}
+                        >
+                          {lead.verified ? "Yes" : "No"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 text-sm text-gray-600">
+                        {formatDate(lead.createdAt)}
+                      </td>
+                      <td className="px-4 py-2 text-sm text-gray-700 font-mono">
+                        {lead.verificationCode || "-"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>
