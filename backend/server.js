@@ -11,20 +11,17 @@ const app = express();
 /* =========================
    MIDDLEWARE
 ========================= */
-
 app.use(
   cors({
-    origin: "http://localhost:5173", // frontend URL
-    credentials: true                // ALLOW COOKIES
+    origin: "http://localhost:5173",
+    credentials: true
   })
 );
-
 app.use(express.json());
 
 /* =========================
-   SESSION CONFIG (CRITICAL)
+   SESSION CONFIG
 ========================= */
-
 app.use(
   session({
     name: "connect.sid",
@@ -33,7 +30,7 @@ app.use(
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: false,     // MUST be false on localhost
+      secure: false,
       sameSite: "lax"
     }
   })
@@ -42,14 +39,12 @@ app.use(
 /* =========================
    PASSPORT
 ========================= */
-
 app.use(passport.initialize());
 app.use(passport.session());
 
 /* =========================
    DATABASE
 ========================= */
-
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB Connected"))
@@ -58,21 +53,15 @@ mongoose
 /* =========================
    ROUTES
 ========================= */
-
 app.use("/api/auth", require("./routes/authRoutes"));
-app.use("/api/events", require("./routes/eventRoutes"));
-app.get("/api/debug/session", (req, res) => {
-  res.json({
-    session: req.session,
-    user: req.user || null
-  });
-});
+app.use("/api/events", require("./routes/eventRoutes")); // optional: event-specific lead handling
+app.use("/api/lead", require("./routes/leadRoutes"));    // fully handles 4-digit verification
+const adminRoutes = require("./routes/adminRoutes");
+
+app.use("/api/admin", adminRoutes);
 
 
 /* =========================
    SERVER
 ========================= */
-
-app.listen(5000, () => {
-  console.log("Server running on 5000");
-});
+app.listen(5000, () => console.log("Server running on 5000"));

@@ -1,12 +1,42 @@
 import { useContext, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
-import { Transition } from "@headlessui/react"; // Optional for smooth mobile menu
+import { Transition } from "@headlessui/react"; // For smooth mobile menu
+import api from "../services/api"; // make sure your api has auth token interceptor
 
 function Navbar() {
-  const { user, loading } = useContext(AuthContext);
+  const { user, loading, logout } = useContext(AuthContext);
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
+  const [scraping, setScraping] = useState(false);
+  const [scrapingError, setScrapingError] = useState("");
 
   if (loading) return null;
+
+  const triggerScraper = async () => {
+    if (!window.confirm("Are you sure you want to scrape Sydney events? This may take a few minutes...")) return;
+
+    try {
+      setScrapingError("");
+      setScraping(true);
+      console.log("Starting scraper...");
+      const res = await api.post("/admin/scrape-sydney");
+      console.log("Scraper response:", res.data);
+      alert(`✅ ${res.data.message}`);
+    } catch (err) {
+      console.error("Scraper error:", err);
+      const errorMsg = err.response?.data?.message || err.message || "Failed to run scraper";
+      setScrapingError(errorMsg);
+      alert(`❌ Scraper Error:\n${errorMsg}`);
+    } finally {
+      setScraping(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/");
+  };
 
   return (
     <nav className="bg-white shadow-md">
@@ -14,42 +44,51 @@ function Navbar() {
         <div className="flex justify-between h-16">
           {/* Logo */}
           <div className="flex-shrink-0 flex items-center">
-            <a href="/" className="text-2xl font-bold text-indigo-600">
-              MyApp
-            </a>
+            <Link to="/" className="text-2xl font-bold text-indigo-600">
+              Sydney_Event_Scrapper
+            </Link>
           </div>
 
           {/* Desktop Menu */}
-          <div className="hidden md:flex md:items-center space-x-6">
-            <a href="/" className="text-gray-700 hover:text-indigo-600">
+          <div className="hidden md:flex md:items-center space-x-4">
+            <Link to="/" className="text-gray-700 hover:text-indigo-600">
               Home
-            </a>
+            </Link>
 
             {user && (
               <>
-                <a href="/dashboard" className="text-gray-700 hover:text-indigo-600">
-                  Admin
-                </a>
-                <span className="font-semibold text-gray-800">
-                  👋 {user.name}
-                </span>
+                <Link to="/dashboard" className="text-gray-700 hover:text-indigo-600">
+                  Admin_Dashboard
+                </Link>
+                {/* Scraper button for admins */}
+                <button
+                  onClick={triggerScraper}
+                  disabled={scraping}
+                  className={`px-3 py-1 rounded text-white transition ${
+                    scraping ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
+                  }`}
+                  title={scraping ? "Scraping in progress..." : "Click to scrape Sydney events from Eventbrite"}
+                >
+                  {scraping ? "⏳ Scraping..." : "🕷️ Scrape Events"}
+                </button>
+                <span className="font-semibold text-gray-800">👋 {user.name}</span>
               </>
             )}
 
             {!user ? (
-              <a
-                href="/login"
+              <Link
+                to="/login"
                 className="bg-indigo-600 text-white px-3 py-1 rounded hover:bg-indigo-700 transition"
               >
                 Admin Login
-              </a>
+              </Link>
             ) : (
-              <a
-                href="/logout"
+              <button
+                onClick={handleLogout}
                 className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition"
               >
                 Logout
-              </a>
+              </button>
             )}
           </div>
 
@@ -98,38 +137,44 @@ function Navbar() {
         leaveTo="-translate-y-2 opacity-0"
       >
         <div className="md:hidden px-4 pt-2 pb-4 space-y-2 bg-white shadow-md">
-          <a href="/" className="block text-gray-700 hover:text-indigo-600">
+          <Link to="/" className="block text-gray-700 hover:text-indigo-600">
             Home
-          </a>
+          </Link>
 
           {user && (
             <>
-              <a
-                href="/dashboard"
-                className="block text-gray-700 hover:text-indigo-600"
-              >
+              <Link to="/dashboard" className="block text-gray-700 hover:text-indigo-600">
                 Admin
-              </a>
-              <span className="block font-semibold text-gray-800">
-                👋 {user.name}
-              </span>
+              </Link>
+
+              <button
+                onClick={triggerScraper}
+                disabled={scraping}
+                className={`block w-full text-left px-3 py-1 rounded text-white transition ${
+                  scraping ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
+                }`}
+              >
+                {scraping ? "⏳ Scraping..." : "🕷️ Scrape Events"}
+              </button>
+
+              <span className="block font-semibold text-gray-800">👋 {user.name}</span>
             </>
           )}
 
           {!user ? (
-            <a
-              href="/login"
+            <Link
+              to="/login"
               className="block bg-indigo-600 text-white px-3 py-1 rounded hover:bg-indigo-700 transition"
             >
               Admin Login
-            </a>
+            </Link>
           ) : (
-            <a
-              href="/logout"
-              className="block bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition"
+            <button
+              onClick={handleLogout}
+              className="block w-full text-left bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition"
             >
               Logout
-            </a>
+            </button>
           )}
         </div>
       </Transition>

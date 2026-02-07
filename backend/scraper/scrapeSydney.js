@@ -7,8 +7,11 @@ async function scrape() {
   let browser;
 
   try {
-    await mongoose.connect(process.env.MONGO_URI);
-    console.log("MongoDB connected");
+    // Only connect if not already connected
+    if (mongoose.connection.readyState !== 1) {
+      await mongoose.connect(process.env.MONGO_URI);
+      console.log("MongoDB connected");
+    }
 
     browser = await puppeteer.launch({
       headless: "new",
@@ -17,16 +20,25 @@ async function scrape() {
     });
 
     const page = await browser.newPage();
+    
+    // Set timeout for page operations (30 seconds)
+    page.setDefaultTimeout(30000);
+    page.setDefaultNavigationTimeout(30000);
+    
     await page.goto(
       "https://www.eventbrite.com.au/d/australia--sydney/events/",
-      { waitUntil: "networkidle2", timeout: 0 }
+      { waitUntil: "networkidle2", timeout: 30000 }
     );
 
     // Scroll to load lazy images
     await autoScroll(page);
 
-    // Wait for at least one link to appear
-    await page.waitForSelector("a[href*='/e/']", { timeout: 15000 });
+    // Wait for at least one link to appear (with fallback timeout)
+    try {
+      await page.waitForSelector("a[href*='/e/']", { timeout: 15000 });
+    } catch (err) {
+      console.log("Timeout waiting for event links. Continuing anyway...");
+    }
 
     const scrapedEvents = await page.evaluate(() => {
       const links = Array.from(document.querySelectorAll("a[href*='/e/']"));
@@ -56,7 +68,7 @@ async function scrape() {
 
     if (!scrapedEvents.length) {
       console.log("No events found!");
-      return;
+      return { added: 0, updated: 0 };
     }
 
     // Add metadata
@@ -66,12 +78,20 @@ async function scrape() {
     const titles = new Set(events.map(e => e.title));
 
     // Upsert DB
+    let added = 0;
+    let updated = 0;
+    
     for (const event of events) {
-      await Event.updateOne(
+      const result = await Event.updateOne(
         { title: event.title },
         { $setOnInsert: event },
         { upsert: true }
       );
+      if (result.upsertedCount > 0) {
+        added++;
+      } else if (result.modifiedCount > 0) {
+        updated++;
+      }
     }
 
     // Mark missing events inactive
@@ -81,12 +101,14 @@ async function scrape() {
     );
 
     console.log("Scraping + DB update done ✅");
+    return { added, updated };
   } catch (err) {
     console.error("Scraping failed:", err.message);
+    console.error("Full error:", err);
+    throw new Error(`Scraping failed: ${err.message}`);
   } finally {
     if (browser) await browser.close();
-    await mongoose.connection.close();
-    console.log("Browser & DB closed");
+    // Don't close MongoDB connection - let the server manage it
   }
 }
 
@@ -108,4 +130,4 @@ async function autoScroll(page) {
   });
 }
 
-scrape();
+module.exports = scrape;

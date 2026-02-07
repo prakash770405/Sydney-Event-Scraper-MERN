@@ -3,6 +3,8 @@ import api from "../services/api";
 
 function Home() {
   const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     loadEvents();
@@ -10,10 +12,12 @@ function Home() {
 
   const loadEvents = async () => {
     try {
+      setError("");
       const res = await api.get("/events/public");
-      setEvents(res.data);
+      setEvents(res.data || []);
     } catch (err) {
       console.error("Failed to load events:", err);
+      setError("Failed to load events. Please refresh the page.");
     }
   };
 
@@ -23,39 +27,82 @@ function Home() {
   };
 
   const getTickets = async (event) => {
-    let email = prompt("Enter your Gmail address to get tickets:");
+    let email = prompt("Enter your email address to get tickets:");
 
     if (!email) {
       alert("Email is required!");
       return;
     }
 
-    if (!/^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(email)) {
-      alert("Please enter a valid Gmail address!");
+    if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
+      alert("Please enter a valid email address!");
       return;
     }
 
     try {
-      await api.post("/events/lead", {
+      setLoading(true);
+      setError("");
+
+      // 1️⃣ Create lead & send verification email
+      const leadRes = await api.post("/lead/submit", {
+        name: "Guest",
         email,
         eventId: event._id,
-        consent: true
+        consent: true,
       });
 
-      window.open(event.originalUrl, "_blank");
+      const leadId = leadRes.data.leadId;
+      
+      // Check if already verified
+      if (leadRes.data.redirectUrl) {
+        window.location.href = leadRes.data.redirectUrl;
+        return;
+      }
+
+      alert("A verification link has been sent to your email. Click the link to complete your ticket registration.");
+      
+      // Optionally ask for code if email link fails
+      const useCode = prompt("Or enter the 4-digit code that was sent to your email (optional):");
+
+      if (useCode && useCode.length === 4) {
+        // Verify the code
+        const verifyRes = await api.post("/lead/verify", { 
+          leadId, 
+          code: useCode 
+        });
+
+        if (verifyRes.data.redirectUrl) {
+          window.location.href = verifyRes.data.redirectUrl;
+        }
+      }
+
+      setLoading(false);
     } catch (err) {
       console.error(err);
-      alert("Failed to save email. Try again.");
+      const errorMsg = err.response?.data?.message || "Failed to process tickets. Try again.";
+      setError(errorMsg);
+      alert(errorMsg);
+      setLoading(false);
     }
   };
 
   return (
     <div className="p-6">
-      <h2 className="text-2xl font-bold mb-6 text-gray-800">Sydney Events</h2>
+      <h2 className="text-2xl font-bold mb-6 text-gray-800">All Events In Sydney</h2>
 
-      {events.length === 0 && (
-        <p className="text-gray-500">No events available.</p>
+      {error && (
+        <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+          {error}
+          <button 
+            onClick={() => setError("")}
+            className="ml-4 text-red-700 underline"
+          >
+            Dismiss
+          </button>
+        </div>
       )}
+
+      {events.length === 0 && <p className="text-gray-500">No events available.</p>}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         {events.map((event) => (
@@ -91,9 +138,14 @@ function Home() {
 
               <button
                 onClick={() => getTickets(event)}
-                className="w-full bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition"
+                disabled={loading}
+                className={`w-full px-4 py-2 rounded text-white transition ${
+                  loading
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-indigo-600 hover:bg-indigo-700"
+                }`}
               >
-                🎟️ Get Tickets
+                {loading ? "Processing..." : "🎟️ Get Tickets"}
               </button>
             </div>
           </div>

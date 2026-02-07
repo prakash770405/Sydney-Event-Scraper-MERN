@@ -28,6 +28,13 @@ router.get("/me", (req, res) => {
   res.json({ authenticated: false });
 });
 
-
+router.get("/logout", (req, res) => {
+  req.logout((err) => {
+    if (err) {
+      return res.status(500).json({ message: "Logout failed" });
+    }
+    res.json({ message: "Logged out successfully" });
+  });
+});
 
 module.exports = router;

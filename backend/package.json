@@ -17,6 +17,7 @@
     "mongoose": "^9.1.6",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
-    "puppeteer": "^24.36.1"
+    "puppeteer": "^24.36.1",
+    "sib-api-v3-sdk": "^8.5.0"
   }
 }

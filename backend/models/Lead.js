@@ -1,10 +1,13 @@
 const mongoose = require("mongoose");
 
-const leadSchema = new mongoose.Schema({
-  email: String,
-  eventId: mongoose.Schema.Types.ObjectId,
-  consent: Boolean,
-  createdAt: { type: Date, default: Date.now }
-});
+const LeadSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  email: { type: String, required: true },
+  phone: String,
+  eventId: { type: mongoose.Schema.Types.ObjectId, ref: "Event", required: true },
+  verificationCode: { type: String }, // make optional
+  verified: { type: Boolean, default: false },
+  consent: { type: Boolean, default: false },
+}, { timestamps: true });
 
-module.exports = mongoose.model("Lead", leadSchema);
+module.exports = mongoose.model("Lead", LeadSchema);
